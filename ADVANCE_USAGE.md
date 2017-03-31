@@ -44,13 +44,13 @@ Use ``livestream_dl -h`` to see the full list of available options.
 
 Examples:
 
-* ``livestream_dl -u 'myloginusername' -p 'mypassword' 'myfavigacct'``
+* ``livestream_dl -u "myloginusername" -p "mypassword" "myfavigacct"``
     - Suppress the manual prompt for password
 
-* ``livestream_dl -u 'myloginusername' -outputdir 'C:\instagram_live_downloads\' 'myfavigacct'``
+* ``livestream_dl -u "myloginusername" -outputdir "C:\instagram_live_downloads\" "myfavigacct"``
     - saves downloads to ``C:\instagram_live_downloads\``
 
-* ``livestream_dl -u 'myloginusername' -commenters johndoe janedoe -collectcomments 'myfavigacct'``
+* ``livestream_dl -u "myloginusername" -commenters johndoe janedoe -collectcomments "myfavigacct"``
     - saves comments from verified users as well as 'johndoe' and 'janedoe'
 
 ### Config File

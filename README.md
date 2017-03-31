@@ -26,7 +26,7 @@ Where:
 
 - ``<username>`` is your ig username
 - ``<instagram-live-username> `` is the ig user whose stream you want to save
-- Example: ``livestream_dl -u 'jane' 'johndoe'``
+- Example: ``livestream_dl -u "jane" "johndoe"``
 
 Enter the account password when prompted. As the script runs, you should see something similar to:
 
