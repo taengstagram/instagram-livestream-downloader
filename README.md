@@ -19,7 +19,7 @@ pip install git+https://git@github.com/taengstagram/instagram-livestream-downloa
 ## Usage
 
 ```bash
-livestream_dl -u '<username>' '<instagram-live-username>'
+livestream_dl -u "<username>" "<instagram-live-username>"
 ```
 
 Where:
@@ -65,3 +65,7 @@ livestream_dl -version
 ```
 
 Get update notifications using [IFTTT](https://ifttt.com) and the [release RSS feed](https://github.com/taengstagram/instagram-livestream-downloader/releases.atom).
+
+## Problems?
+
+Please submit a [new issue](https://github.com/taengstagram/instagram-livestream-downloader/issues/new). You'll be prompted for some basic information that 
