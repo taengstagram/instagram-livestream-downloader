@@ -1,5 +1,6 @@
 import logging
 import json
+import codecs
 
 from instagram_private_api.compat import compat_urllib_request
 
@@ -160,3 +161,19 @@ def check_for_updates(current_version):
         print('[!] Error checking updates: %s' % str(e))
 
     return ''
+
+
+def to_json(python_object):
+    """For py3 compat"""
+    if isinstance(python_object, bytes):
+        return {'__class__': 'bytes',
+                '__value__': codecs.encode(python_object, 'base64').decode()}
+    raise TypeError(repr(python_object) + ' is not JSON serializable')
+
+
+def from_json(json_object):
+    """For py3 compat"""
+    if '__class__' in json_object:
+        if json_object['__class__'] == 'bytes':
+            return codecs.decode(json_object['__value__'].encode(), 'base64')
+    return json_object

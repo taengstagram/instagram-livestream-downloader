@@ -27,7 +27,7 @@ except ImportError:
     from http.client import HTTPException
     from configparser import SafeConfigParser
 
-from .utils import Formatter, UserConfig, check_for_updates
+from .utils import Formatter, UserConfig, check_for_updates, to_json, from_json
 
 from instagram_private_api import (
     Client, ClientError, ClientCookieExpiredError, ClientLoginRequiredError
@@ -55,22 +55,6 @@ api_logger = logging.getLogger('instagram_private_api')
 api_logger.addHandler(ch)
 
 rule_line = '-' * 80
-
-
-def to_json(python_object):
-    """For py3 compat"""
-    if isinstance(python_object, bytes):
-        return {'__class__': 'bytes',
-                '__value__': codecs.encode(python_object, 'base64').decode()}
-    raise TypeError(repr(python_object) + ' is not JSON serializable')
-
-
-def from_json(json_object):
-    """For py3 compat"""
-    if '__class__' in json_object:
-        if json_object['__class__'] == 'bytes':
-            return codecs.decode(json_object['__value__'].encode(), 'base64')
-    return json_object
 
 
 def onlogin_callback(api, new_settings_file):
