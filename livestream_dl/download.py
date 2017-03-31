@@ -264,8 +264,28 @@ def run():
     try:
         if not os.path.isfile(settings_file_path):
             # login afresh
+
+            # don't use default device profile
+            custom_device = {
+                'manufacturer': 'Samsung',
+                'model': 'hero2lte',
+                'device': 'SM-G935F',
+                'android_release': '6.0.1',
+                'android_version': 23,
+                'dpi': '640dpi',
+                'resolution': '1440x2560',
+                'chipset': 'samsungexynos8890'
+            }
             api = Client(
                 user_username, user_password,
+                android_release=custom_device['android_release'],
+                android_version=custom_device['android_version'],
+                phone_manufacturer=custom_device['manufacturer'],
+                phone_device=custom_device['device'],
+                phone_model=custom_device['model'],
+                phone_dpi=custom_device['dpi'],
+                phone_resolution=custom_device['resolution'],
+                phone_chipset=custom_device['chipset'],
                 on_login=lambda x: onlogin_callback(x, settings_file_path))
         else:
             # reuse cached auth
