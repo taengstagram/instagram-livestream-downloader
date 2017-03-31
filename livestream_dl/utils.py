@@ -144,7 +144,8 @@ def check_for_updates(current_version):
     try:
         repo = 'taengstagram/instagram-livestream-downloader'
         res = compat_urllib_request.urlopen('https://api.github.com/repos/%s/releases' % repo)
-        releases = json.load(res)
+        json_res = res.read().decode('utf-8')
+        releases = json.loads(json_res)
         if not releases:
             return ''
         latest_tag = releases[0]['tag_name']
@@ -155,7 +156,7 @@ def check_for_updates(current_version):
                 '    pip install git+https://git@github.com/%(repo)s.git@%(tag)s --process-dependency-links --upgrade'
                 '\nCheck https://github.com/%(repo)s/ for more information.'
                 % {'tag': latest_tag, 'repo': repo})
-    except:
-        pass
+    except Exception as e:
+        print('[!] Error checking updates: %s' % str(e))
 
     return ''
