@@ -1,6 +1,7 @@
 import logging
 import json
 import codecs
+from sys import platform
 
 from instagram_private_api.compat import compat_urllib_request
 
@@ -22,6 +23,9 @@ class Formatter(logging.Formatter):
         super(Formatter, self).__init__(fmt, datefmt)
 
     def format(self, record):
+        if platform == 'win32':     # disable for windows
+            return str(record.msg)
+
         color = ''
         if record.levelno == logging.ERROR:
             color = TerminalColors.FAIL
