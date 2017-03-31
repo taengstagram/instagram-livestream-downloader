@@ -3,7 +3,7 @@ from setuptools import setup
 
 __author__ = 'taengstagram'
 __email__ = 'taengstagram@gmail.com'
-__version__ = '0.2.2'
+__version__ = '0.2.3'
 
 _api_version = '1.2.3'
 _api_extensions_version = '0.2.5'
