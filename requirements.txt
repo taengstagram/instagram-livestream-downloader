@@ -1,0 +1,2 @@
+-e git+https://github.com/ping/instagram_private_api.git@1.2.3#egg=instagram_private_api-1.2.3
+-e git+https://github.com/ping/instagram_private_api_extensions.git@0.2.5#egg=instagram_private_api_extensions-0.2.5

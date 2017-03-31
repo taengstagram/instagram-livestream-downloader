@@ -1,0 +1,30 @@
+dist: Trusty
+language: python
+
+python:
+  - "2.7"
+  - "3.5"
+  - "3.6"
+
+install:
+  # Install ffmpeg
+  - sudo add-apt-repository -y ppa:mc3man/trusty-media
+  - sudo apt-get -y update
+  - sudo apt-get install -y ffmpeg
+  # Install flake8
+  - pip install flake8
+  # Install lib
+  - python setup.py install
+  # Grab test file
+  - curl -s -L -o livestream_assemble_test.tar.gz 'https://drive.google.com/uc?export=download&id=0B_RozRJ59Tp2TDJMSHQtdVJPeXM'
+  - mkdir test_assemble && tar -xzf livestream_assemble_test.tar.gz -C test_assemble/
+
+script:
+- flake8 --max-line-length=120 livestream_dl/
+- livestream_dl -h
+- livestream_as -o test_assemble/downloads/ -f test_assemble.mp4 -c test_assemble/sample_comments.json test_assemble/sample.json
+- ls test_assemble.mp4 test_assemble.srt
+
+branches:
+  only:
+    - master
