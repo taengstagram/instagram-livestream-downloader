@@ -152,7 +152,7 @@ def check_for_updates(current_version):
             return (
                 '[!] A newer version %(tag)s is available.\n'
                 'Upgrade with the command:\n'
-                '    pip install git+ssh://git@github.com/%(repo)s.git@%(tag)s --process-dependency-links --upgrade'
+                '    pip install git+https://git@github.com/%(repo)s.git@%(tag)s --process-dependency-links --upgrade'
                 '\nCheck https://github.com/%(repo)s/ for more information.'
                 % {'tag': latest_tag, 'repo': repo})
     except:
