@@ -13,7 +13,7 @@ Make sure you have the [prerequisites](PREREQUISITES.md) installed.
 In the Command Prompt / Terminal:
 
 ```bash
-pip install git+ssh://git@github.com/taengstagram/instagram-livestream-downloader.git@0.2.1 --process-dependency-links
+pip install git+https://git@github.com/taengstagram/instagram-livestream-downloader.git@0.2.1 --process-dependency-links
 ```
 
 ## Usage
@@ -55,7 +55,7 @@ You can refer to the [Advance Usage doc](ADVANCE_USAGE.md) for more options.
 The latest version is __v0.2.1__. To update your copy:
 
 ```bash
-pip install git+ssh://git@github.com/taengstagram/instagram-livestream-downloader.git@0.2.1 --process-dependency-links --upgrade
+pip install git+https://git@github.com/taengstagram/instagram-livestream-downloader.git@0.2.1 --process-dependency-links --upgrade
 ```
 
 You can check if a new version is available with:
