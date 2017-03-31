@@ -1,4 +1,4 @@
-# Instagram Live Stream Downloader [![Release](https://img.shields.io/badge/latest_release-v0.2.4-ff4980.svg)](https://github.com/taengstagram/instagram-livestream-downloader/releases)
+# Instagram Live Stream Downloader [![Release](https://img.shields.io/badge/latest_release-v0.2.5-ff4980.svg)](https://github.com/taengstagram/instagram-livestream-downloader/releases)
 
 ``livestream_dl`` is a Python console script that downloads an Instagram Live stream. It only downloads a stream that is *currently* ongoing, and cannot capture any part of a stream that has already passed.
 
@@ -13,7 +13,7 @@ Make sure you have the [prerequisites](PREREQUISITES.md) installed.
 In the Command Prompt / Terminal:
 
 ```bash
-pip install git+https://git@github.com/taengstagram/instagram-livestream-downloader.git@0.2.4 --process-dependency-links
+pip install git+https://git@github.com/taengstagram/instagram-livestream-downloader.git@0.2.5 --process-dependency-links
 ```
 
 ## Usage
@@ -31,7 +31,7 @@ Where:
 Enter the account password when prompted. As the script runs, you should see something similar to:
 
 ```
-INSTAGRAM LIVESTREAM DOWNLOADER (v0.2.4)
+INSTAGRAM LIVESTREAM DOWNLOADER (v0.2.5)
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
 Password for jane: 
 ------------------------------------------------------------------
@@ -52,10 +52,10 @@ You can refer to the [Advance Usage doc](ADVANCE_USAGE.md) for more options.
 
 ## Updating
 
-The latest version is __v0.2.4__. To update your copy:
+The latest version is __v0.2.5__. To update your copy:
 
 ```bash
-pip install git+https://git@github.com/taengstagram/instagram-livestream-downloader.git@0.2.4 --process-dependency-links --upgrade
+pip install git+https://git@github.com/taengstagram/instagram-livestream-downloader.git@0.2.5 --process-dependency-links --upgrade
 ```
 
 You can check if a new version is available with:
