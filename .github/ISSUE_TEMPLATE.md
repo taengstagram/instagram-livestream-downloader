@@ -4,6 +4,7 @@
 - I can't help you with python / ffmpeg installation problems so issues related to those will probably not get a response from me.
 - Please read the questions asked and answer completely.
 - Put an `x` into all the boxes [ ] relevant to your issue (like so [x] - no spaces).
+- Do not post screenshots of text errors or logs.
 - Use the Preview tab to see how your issue will actually look like.
 
 ---
