@@ -11,6 +11,7 @@
 
 ### Before submitting an issue, make sure you have:
 - [ ] Read the [README](https://github.com/taengstagram/instagram-livestream-downloader/blob/master/README.md)
+- [ ] Read the [FAQ](https://github.com/taengstagram/instagram-livestream-downloader/blob/master/FAQ.md)
 - [ ] [Searched](https://github.com/taengstagram/instagram-livestream-downloader/search?type=Issues) the bugtracker for similar issues including **closed** ones
 - [ ] Make sure you have the latest version: v0.2.4
 
@@ -26,7 +27,7 @@ Command:
 ```bash
 # Paste your command here.
 # Remember not to include sensitive info such as passwords. Example:
-livestream_dl -u 'myusername' -collectcomments -o '/path/to/dl_folder/' 'myfavigacct'
+livestream_dl -u "myusername" -collectcomments -o "/path/to/dl_folder/" "myfavigacct"
 ```
 
 Complete Output/Error Log:
