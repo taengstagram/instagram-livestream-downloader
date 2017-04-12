@@ -3,6 +3,8 @@ import json
 import codecs
 import sys
 import os
+import re
+import itertools
 
 from instagram_private_api.compat import compat_urllib_request
 
@@ -201,3 +203,27 @@ def from_json(json_object):
         if json_object['__class__'] == 'bytes':
             return codecs.decode(json_object['__value__'].encode(), 'base64')
     return json_object
+
+
+def generate_safe_path(name, folder_path):
+    mobj = re.match(r'(?P<nm>.*)\.(?P<ext>[a-z0-9]+)?$', name)
+
+    if not mobj:
+        # path has no extension
+        name_sans_ext = name
+        ext = ''
+    else:
+        # has extension
+        name_sans_ext = mobj.group('nm')
+        ext = mobj.group('ext')
+
+    # Generate suitable numeric-based rename if path exists
+    # Example: test.txt -> test-1.txt -> test-2.txt, test-3.txt
+    # Example: test_folder -> test_folder-1 -> test_folder-2
+    for s in itertools.count(0, step=1):
+        if not s:
+            target_name = '%s%s' % (name_sans_ext, ('.%s' % ext) if ext else '')
+        else:
+            target_name = '%s-%s%s' % (name_sans_ext, s, ('.%s' % ext) if ext else '')
+        if not os.path.exists(os.path.join(folder_path, target_name)):
+            return os.path.join(folder_path, target_name)

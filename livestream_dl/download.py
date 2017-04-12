@@ -27,7 +27,10 @@ except ImportError:
     from http.client import HTTPException
     from configparser import SafeConfigParser
 
-from .utils import Formatter, UserConfig, check_for_updates, to_json, from_json
+from .utils import (
+    Formatter, UserConfig, check_for_updates,
+    to_json, from_json, generate_safe_path
+)
 
 from instagram_private_api import (
     Client, ClientError, ClientCookieExpiredError, ClientLoginRequiredError
@@ -302,7 +305,9 @@ def run():
         exit(99)
 
     if user_username != api.authenticated_user_name:
-        logger.warn('Authenticated username mismatch: %s vs %s' % (user_username, api.authenticated_user_name))
+        logger.warn(
+            'Authenticated username mismatch: %s vs %s'
+            % (user_username, api.authenticated_user_name))
 
     # Alow user to save an api call if they directly specify the IG numeric user ID
     if re.match('^\d+$', argparser.instagram_user):
@@ -331,13 +336,13 @@ def run():
 
     download_start_time = int(time.time())
     filename_prefix = '%s_%s_%s' % (
-        datetime.datetime.now().strftime('%Y%m%d_%H%M'),
-        broadcast['broadcast_owner']['username'],
+        datetime.datetime.now().strftime('%Y%m%d'),
+        broadcast['broadcast_owner']['username'].replace('.', ''),
         broadcast['id'])
 
     # dash_abr_playback_url has the higher def stream
     mpd_url = broadcast.get('dash_abr_playback_url') or broadcast['dash_playback_url']
-    mpd_output_dir = os.path.join(userconfig.outputdir, '%s_downloads/' % filename_prefix.replace('.', ''))
+    mpd_output_dir = generate_safe_path('%s_downloads' % filename_prefix, userconfig.outputdir)
 
     # Print broadcast info to console
     mins, secs = divmod((int(time.time()) - broadcast['published_time']), 60)
@@ -354,10 +359,10 @@ def run():
     broadcast['delay'] = download_start_time - broadcast['published_time']
 
     # file path to save the stream's info
-    meta_json_file = os.path.join(userconfig.outputdir, '%s.json' % filename_prefix)
+    meta_json_file = generate_safe_path('%s.json' % filename_prefix, userconfig.outputdir)
 
     # file path to save collected comments
-    comments_json_file = os.path.join(userconfig.outputdir, '%s_comments.json' % filename_prefix)
+    comments_json_file = generate_safe_path('%s_comments.json' % filename_prefix, userconfig.outputdir)
 
     with open(meta_json_file, 'w') as outfile:
         json.dump(broadcast, outfile, indent=2)
@@ -469,13 +474,16 @@ def run():
         with open(meta_json_file, 'w') as outfile:
             json.dump(broadcast, outfile, indent=2)
 
+        missing = broadcast['delay'] - int(dl.initial_buffered_duration)
+        logger.info('Recorded stream is missing %d seconds' % missing)
+
         # Wait for comments thread to complete
         if comment_thread_worker and comment_thread_worker.is_alive():
             logger.info('Stopping comments download...')
             comment_thread_worker.join()
 
         logger.info('Assembling files....')
-        final_output = os.path.join(userconfig.outputdir, '%s.mp4' % filename_prefix)
+        final_output = generate_safe_path('%s.mp4' % filename_prefix, userconfig.outputdir)
 
         dl.stitch(final_output, skipffmpeg=userconfig.skipffmpeg, cleartempfiles=(not userconfig.nocleanup))
 
