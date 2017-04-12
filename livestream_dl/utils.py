@@ -1,7 +1,8 @@
 import logging
 import json
 import codecs
-from sys import platform
+import sys
+import os
 
 from instagram_private_api.compat import compat_urllib_request
 
@@ -22,8 +23,25 @@ class Formatter(logging.Formatter):
     def __init__(self, fmt=None, datefmt=None):
         super(Formatter, self).__init__(fmt, datefmt)
 
+    @staticmethod
+    def supports_color():
+        """
+        from https://github.com/django/django/blob/master/django/core/management/color.py
+
+        Return True if the running system's terminal supports color,
+        and False otherwise.
+        """
+        plat = sys.platform
+        supported_platform = plat != 'Pocket PC' and (plat != 'win32' or 'ANSICON' in os.environ)
+
+        # isatty is not always implemented, #6223.
+        is_a_tty = hasattr(sys.stdout, 'isatty') and sys.stdout.isatty()
+        if not supported_platform or not is_a_tty:
+            return False
+        return True
+
     def format(self, record):
-        if platform == 'win32':     # disable for windows
+        if not self.supports_color():
             return str(record.msg)
 
         color = ''
@@ -77,6 +95,7 @@ class UserConfig(object):
             'username=%s' % self.username,
             'password=%s' % self.password,
             'outputdir=%s' % self.outputdir,
+            'commenters=[%s]' % ','.join(self.commenters),
             'collectcomments=%s' % self.collectcomments,
             'nocleanup=%s' % self.nocleanup,
             'openwhendone=%s' % self.openwhendone,
@@ -158,7 +177,8 @@ def check_for_updates(current_version):
             return (
                 '[!] A newer version %(tag)s is available.\n'
                 'Upgrade with the command:\n'
-                '    pip install git+https://git@github.com/%(repo)s.git@%(tag)s --process-dependency-links --upgrade'
+                '    pip install git+https://git@github.com/%(repo)s.git@%(tag)s'
+                ' --process-dependency-links --upgrade'
                 '\nCheck https://github.com/%(repo)s/ for more information.'
                 % {'tag': latest_tag, 'repo': repo})
     except Exception as e:
