@@ -69,3 +69,11 @@ Get update notifications using [IFTTT](https://ifttt.com) and the [release RSS f
 ## Problems?
 
 If your problem isn't already covered in the [FAQ](FAQ.md), please submit a [new issue](https://github.com/taengstagram/instagram-livestream-downloader/issues/new). Make sure to provide the information required to diagnose the problem.
+
+## Uninstall
+
+Simply run:
+
+```bash
+pip uninstall instagram-livestream-downloader
+```
