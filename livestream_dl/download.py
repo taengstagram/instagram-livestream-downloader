@@ -16,6 +16,7 @@ import shutil
 import subprocess
 from socket import timeout, error as SocketError
 from ssl import SSLError
+from string import Formatter as StringFormatter
 try:
     # py2
     from urllib2 import URLError
@@ -176,6 +177,8 @@ def run():
                         help='Enable verbose debug messages.')
     parser.add_argument('-log', dest='log',
                         help='Log to file specified.')
+    parser.add_argument('-filenameformat', dest='filenameformat', type=str,
+                        help='Custom filename format.')
     parser.add_argument('-ignoreconfig', dest='ignoreconfig', action='store_true',
                         help='Ignore the livestream_dl.cfg file.')
     parser.add_argument('-version', dest='version_check', action='store_true',
@@ -202,6 +205,7 @@ def run():
         'verbose': False,
         'skipffmpeg': False,
         'ffmpegbinary': None,
+        'filenameformat': '{year}{month}{day}_{username}_{broadcastid}',
     }
     userconfig = UserConfig(
         config_section, defaults=default_config,
@@ -247,22 +251,23 @@ def run():
     user_password = (userconfig.password or os.getenv(PASSWORD_ENV_KEY) or
                      getpass.getpass(prompt='Password for %s: ' % user_username))
     settings_file_path = userconfig.settings or ('%s.json' % user_username)
+
+    # don't use default device profile
+    custom_device = {
+        'manufacturer': 'Samsung',
+        'model': 'hero2lte',
+        'device': 'SM-G935F',
+        'android_release': '6.0.1',
+        'android_version': 23,
+        'dpi': '640dpi',
+        'resolution': '1440x2560',
+        'chipset': 'samsungexynos8890'
+    }
+
     api = None
     try:
         if not os.path.isfile(settings_file_path):
             # login afresh
-
-            # don't use default device profile
-            custom_device = {
-                'manufacturer': 'Samsung',
-                'model': 'hero2lte',
-                'device': 'SM-G935F',
-                'android_release': '6.0.1',
-                'android_version': 23,
-                'dpi': '640dpi',
-                'resolution': '1440x2560',
-                'chipset': 'samsungexynos8890'
-            }
             api = Client(
                 user_username, user_password,
                 android_release=custom_device['android_release'],
@@ -290,6 +295,14 @@ def run():
         logger.warn('ClientCookieExpiredError/ClientLoginRequiredError: %s' % e)
         api = Client(
             user_username, user_password,
+            android_release=custom_device['android_release'],
+            android_version=custom_device['android_version'],
+            phone_manufacturer=custom_device['manufacturer'],
+            phone_device=custom_device['device'],
+            phone_model=custom_device['model'],
+            phone_dpi=custom_device['dpi'],
+            phone_resolution=custom_device['resolution'],
+            phone_chipset=custom_device['chipset'],
             on_login=lambda x: onlogin_callback(x, settings_file_path))
 
     except ClientError as e:
@@ -309,16 +322,38 @@ def run():
             'Authenticated username mismatch: %s vs %s'
             % (user_username, api.authenticated_user_name))
 
-    # Alow user to save an api call if they directly specify the IG numeric user ID
-    if re.match('^\d+$', argparser.instagram_user):
-        # is a numeric IG user ID
-        ig_user_id = argparser.instagram_user
-    else:
-        # regular ig user name
-        res = api.username_info(argparser.instagram_user)
-        ig_user_id = res['user']['pk']
+    retry_attempts = 2
+    for i in range(1, 1 + retry_attempts):
+        try:
+            # Alow user to save an api call if they directly specify the IG numeric user ID
+            if re.match('^\d+$', argparser.instagram_user):
+                # is a numeric IG user ID
+                ig_user_id = argparser.instagram_user
+            else:
+                # regular ig user name
+                user_res = api.username_info(argparser.instagram_user)
+                ig_user_id = user_res['user']['pk']
 
-    res = api.user_story_feed(ig_user_id)
+            res = api.user_story_feed(ig_user_id)
+            break
+
+        except ClientLoginRequiredError as e:
+            if i < retry_attempts:
+                # Probably because user has changed password somewhere else
+                logger.warn('ClientLoginRequiredError. Logging in again...')
+                api = Client(
+                    user_username, user_password,
+                    android_release=custom_device['android_release'],
+                    android_version=custom_device['android_version'],
+                    phone_manufacturer=custom_device['manufacturer'],
+                    phone_device=custom_device['device'],
+                    phone_model=custom_device['model'],
+                    phone_dpi=custom_device['dpi'],
+                    phone_resolution=custom_device['resolution'],
+                    phone_chipset=custom_device['chipset'],
+                    on_login=lambda x: onlogin_callback(x, settings_file_path))
+            else:
+                raise e
 
     if not res.get('broadcast'):
         logger.info('No broadcast from %s' % ig_user_id)
@@ -334,15 +369,32 @@ def run():
     if not os.path.exists(userconfig.outputdir):
         os.makedirs(userconfig.outputdir)
 
-    download_start_time = int(time.time())
-    filename_prefix = '%s_%s_%s' % (
-        datetime.datetime.now().strftime('%Y%m%d'),
-        broadcast['broadcast_owner']['username'].replace('.', ''),
-        broadcast['id'])
+    now = datetime.datetime.now()
+    download_start_time = int(now.strftime('%s'))
+    format_args = {
+        'year': now.strftime('%Y'),
+        'month': now.strftime('%m'),
+        'day': now.strftime('%d'),
+        'hour': now.strftime('%H'),
+        'minute': now.strftime('%M'),
+        'username': broadcast['broadcast_owner']['username'],
+        'broadcastid': broadcast['id'],
+    }
+    user_format_keys = StringFormatter().parse(userconfig.filenameformat)
+    invalid_user_format_keys = [
+        i[1] for i in user_format_keys if i[1] not in format_args.keys()]
+    if invalid_user_format_keys:
+        logger.error(
+            'Invalid filename format parameters: %s'
+            % ', '.join(invalid_user_format_keys))
+        exit(10)
+
+    filename_prefix = userconfig.filenameformat.format(**format_args)
 
     # dash_abr_playback_url has the higher def stream
     mpd_url = broadcast.get('dash_abr_playback_url') or broadcast['dash_playback_url']
-    mpd_output_dir = generate_safe_path('%s_downloads' % filename_prefix, userconfig.outputdir)
+    mpd_output_dir = generate_safe_path(
+        '%s_downloads' % filename_prefix, userconfig.outputdir, is_file=False)
 
     # Print broadcast info to console
     mins, secs = divmod((int(time.time()) - broadcast['published_time']), 60)

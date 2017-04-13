@@ -107,6 +107,7 @@ class UserConfig(object):
             'ffmpegbinary=%s' % self.ffmpegbinary,
             'skipffmpeg=%s' % self.skipffmpeg,
             'log=%s' % self.log,
+            'filenameformat=%s' % self.filenameformat,
         ])
 
     @property
@@ -165,6 +166,10 @@ class UserConfig(object):
     def log(self):
         return self.get('log')
 
+    @property
+    def filenameformat(self):
+        return self.get('filenameformat')
+
 
 def check_for_updates(current_version):
     try:
@@ -205,10 +210,10 @@ def from_json(json_object):
     return json_object
 
 
-def generate_safe_path(name, folder_path):
+def generate_safe_path(name, parent_path, is_file=True):
     mobj = re.match(r'(?P<nm>.*)\.(?P<ext>[a-z0-9]+)?$', name)
 
-    if not mobj:
+    if not is_file or not mobj:
         # path has no extension
         name_sans_ext = name
         ext = ''
@@ -222,8 +227,11 @@ def generate_safe_path(name, folder_path):
     # Example: test_folder -> test_folder-1 -> test_folder-2
     for s in itertools.count(0, step=1):
         if not s:
-            target_name = '%s%s' % (name_sans_ext, ('.%s' % ext) if ext else '')
+            target_name = name
         else:
-            target_name = '%s-%s%s' % (name_sans_ext, s, ('.%s' % ext) if ext else '')
-        if not os.path.exists(os.path.join(folder_path, target_name)):
-            return os.path.join(folder_path, target_name)
+            if is_file:
+                target_name = '%s-%s%s' % (name_sans_ext, s, ('.%s' % ext) if ext else '')
+            else:
+                target_name = '%s-%s' % (name_sans_ext, s)
+        if not os.path.exists(os.path.join(parent_path, target_name)):
+            return os.path.join(parent_path, target_name)

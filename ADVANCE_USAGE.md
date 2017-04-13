@@ -37,6 +37,17 @@ Use ``livestream_dl -h`` to see the full list of available options.
     - Don't assemble downloaded files into an .mp4 file
 * ``-log``
     - Save all messages to the log file path specified
+* ``-filenameformat``
+    - Specify a custom filename format. The default format ``'{year}{month}{day}_{username}_{broadcastid}'`` will generate a filename like ``20161231_johndoe_987654321.mp4``
+    - Custom variables supported:
+        - ``{year}``
+        - ``{month}``
+        - ``{day}``
+        - ``{hour}``
+        - ``{minute}``
+        - ``{username}``
+        - ``{broadcastid}``
+
 * ``-ignoreconfig``
     - Ignore the config file if present
 * ``-version``
