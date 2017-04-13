@@ -152,9 +152,11 @@ def run():
     parser.add_argument('-settings', dest='settings', type=str,
                         help='File path to save settings.json')
     parser.add_argument('-username', '-u', dest='username', type=str,
-                        help='Login user name. Required if %s env var not set.' % USERNAME_ENV_KEY)
+                        help='Login user name. Required if %s env var not set.'
+                             % USERNAME_ENV_KEY)
     parser.add_argument('-password', '-p', dest='password', type=str, required=False,
-                        help='Login password. Can be set via %s env var.' % PASSWORD_ENV_KEY)
+                        help='Login password. Can be set via %s env var.'
+                             % PASSWORD_ENV_KEY)
     parser.add_argument('-outputdir', '-o', dest='outputdir',
                         help='Output folder path.')
     parser.add_argument('-commenters', metavar='COMMENTER_ID', dest='commenters', nargs='*',
@@ -166,9 +168,11 @@ def run():
     parser.add_argument('-openwhendone', action='store_true',
                         help='Automatically open movie file when completed.')
     parser.add_argument('-mpdtimeout', dest='mpdtimeout', type=int,
-                        help='Set timeout interval for mpd download. Default %d.' % Downloader.MPD_DOWNLOAD_TIMEOUT)
+                        help='Set timeout interval for mpd download. Default %d.'
+                             % Downloader.MPD_DOWNLOAD_TIMEOUT)
     parser.add_argument('-downloadtimeout', dest='downloadtimeout', type=int,
-                        help='Set timeout interval for segments download. Default %d.' % Downloader.DOWNLOAD_TIMEOUT)
+                        help='Set timeout interval for segments download. Default %d.'
+                             % Downloader.DOWNLOAD_TIMEOUT)
     parser.add_argument('-ffmpegbinary', dest='ffmpegbinary', type=str,
                         help='Custom path to ffmpeg binary.')
     parser.add_argument('-skipffmpeg', dest='skipffmpeg', action='store_true',
@@ -254,14 +258,14 @@ def run():
 
     # don't use default device profile
     custom_device = {
-        'manufacturer': 'Samsung',
-        'model': 'hero2lte',
-        'device': 'SM-G935F',
+        'phone_manufacturer': 'Samsung',
+        'phone_model': 'hero2lte',
+        'phone_device': 'SM-G935F',
         'android_release': '6.0.1',
         'android_version': 23,
-        'dpi': '640dpi',
-        'resolution': '1440x2560',
-        'chipset': 'samsungexynos8890'
+        'phone_dpi': '640dpi',
+        'phone_resolution': '1440x2560',
+        'phone_chipset': 'samsungexynos8890'
     }
 
     api = None
@@ -270,15 +274,8 @@ def run():
             # login afresh
             api = Client(
                 user_username, user_password,
-                android_release=custom_device['android_release'],
-                android_version=custom_device['android_version'],
-                phone_manufacturer=custom_device['manufacturer'],
-                phone_device=custom_device['device'],
-                phone_model=custom_device['model'],
-                phone_dpi=custom_device['dpi'],
-                phone_resolution=custom_device['resolution'],
-                phone_chipset=custom_device['chipset'],
-                on_login=lambda x: onlogin_callback(x, settings_file_path))
+                on_login=lambda x: onlogin_callback(x, settings_file_path),
+                **custom_device)
         else:
             # reuse cached auth
             with open(settings_file_path) as file_data:
@@ -295,15 +292,8 @@ def run():
         logger.warn('ClientCookieExpiredError/ClientLoginRequiredError: %s' % e)
         api = Client(
             user_username, user_password,
-            android_release=custom_device['android_release'],
-            android_version=custom_device['android_version'],
-            phone_manufacturer=custom_device['manufacturer'],
-            phone_device=custom_device['device'],
-            phone_model=custom_device['model'],
-            phone_dpi=custom_device['dpi'],
-            phone_resolution=custom_device['resolution'],
-            phone_chipset=custom_device['chipset'],
-            on_login=lambda x: onlogin_callback(x, settings_file_path))
+            on_login=lambda x: onlogin_callback(x, settings_file_path),
+            **custom_device)
 
     except ClientError as e:
         logger.error('ClientError %s (Code: %d, Response: %s)' % (e.msg, e.code, e.error_response))
@@ -343,15 +333,8 @@ def run():
                 logger.warn('ClientLoginRequiredError. Logging in again...')
                 api = Client(
                     user_username, user_password,
-                    android_release=custom_device['android_release'],
-                    android_version=custom_device['android_version'],
-                    phone_manufacturer=custom_device['manufacturer'],
-                    phone_device=custom_device['device'],
-                    phone_model=custom_device['model'],
-                    phone_dpi=custom_device['dpi'],
-                    phone_resolution=custom_device['resolution'],
-                    phone_chipset=custom_device['chipset'],
-                    on_login=lambda x: onlogin_callback(x, settings_file_path))
+                    on_login=lambda x: onlogin_callback(x, settings_file_path),
+                    **custom_device)
             else:
                 raise e
 
@@ -393,8 +376,6 @@ def run():
 
     # dash_abr_playback_url has the higher def stream
     mpd_url = broadcast.get('dash_abr_playback_url') or broadcast['dash_playback_url']
-    mpd_output_dir = generate_safe_path(
-        '%s_downloads' % filename_prefix, userconfig.outputdir, is_file=False)
 
     # Print broadcast info to console
     mins, secs = divmod((int(time.time()) - broadcast['published_time']), 60)
@@ -409,6 +390,10 @@ def run():
 
     # Record the delay = duration of the stream that has been missed
     broadcast['delay'] = download_start_time - broadcast['published_time']
+
+    # folder path for downloaded segments
+    mpd_output_dir = generate_safe_path(
+        '%s_downloads' % filename_prefix, userconfig.outputdir, is_file=False)
 
     # file path to save the stream's info
     meta_json_file = generate_safe_path('%s.json' % filename_prefix, userconfig.outputdir)
