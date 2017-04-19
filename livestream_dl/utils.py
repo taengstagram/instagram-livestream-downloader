@@ -180,14 +180,15 @@ def check_for_updates(current_version):
         if not releases:
             return ''
         latest_tag = releases[0]['tag_name']
+        release_link = releases[0].get('html_url') or ('https://github.com/%s/' % repo)
         if latest_tag != current_version:
             return (
                 '[!] A newer version %(tag)s is available.\n'
                 'Upgrade with the command:\n'
                 '    pip install git+https://git@github.com/%(repo)s.git@%(tag)s'
                 ' --process-dependency-links --upgrade'
-                '\nCheck https://github.com/%(repo)s/ for more information.'
-                % {'tag': latest_tag, 'repo': repo})
+                '\nCheck %(release_link)s for more information.'
+                % {'tag': latest_tag, 'repo': repo, 'release_link': release_link})
     except Exception as e:
         print('[!] Error checking updates: %s' % str(e))
 
