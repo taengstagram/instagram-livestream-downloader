@@ -41,7 +41,7 @@ from instagram_private_api_extensions.live import (
 )
 
 
-__version__ = '0.2.9'
+__version__ = '0.3.0'
 
 USERNAME_ENV_KEY = 'IG_LOGIN_USERNAME'
 PASSWORD_ENV_KEY = 'IG_LOGIN_PASSWORD'
