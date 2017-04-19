@@ -253,12 +253,15 @@ def run():
         exit(9)
 
     user_password = (userconfig.password or os.getenv(PASSWORD_ENV_KEY) or
-                     getpass.getpass(prompt='Password for %s: ' % user_username))
+                     getpass.getpass(
+                         prompt='Type in the password for %s and press "Enter" '
+                                '\n(Your password will not show on screen): '
+                                % user_username))
     settings_file_path = userconfig.settings or ('%s.json' % user_username)
 
     # don't use default device profile
     custom_device = {
-        'phone_manufacturer': 'Samsung',
+        'phone_manufacturer': 'samsung',
         'phone_model': 'hero2lte',
         'phone_device': 'SM-G935F',
         'android_release': '6.0.1',
@@ -353,7 +356,7 @@ def run():
         os.makedirs(userconfig.outputdir)
 
     now = datetime.datetime.now()
-    download_start_time = int(now.strftime('%s'))
+    download_start_time = int(time.time())
     format_args = {
         'year': now.strftime('%Y'),
         'month': now.strftime('%m'),
