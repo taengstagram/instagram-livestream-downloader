@@ -238,7 +238,7 @@ def run():
     if argparser.version_check:
         message = check_for_updates(__version__)
         if message:
-            logger.warn(message)
+            logger.warning(message)
         else:
             logger.info('[i] No new version found.')
 
@@ -292,7 +292,7 @@ def run():
                 settings=cached_settings)
 
     except (ClientCookieExpiredError, ClientLoginRequiredError) as e:
-        logger.warn('ClientCookieExpiredError/ClientLoginRequiredError: %s' % e)
+        logger.warning('ClientCookieExpiredError/ClientLoginRequiredError: %s' % e)
         api = Client(
             user_username, user_password,
             on_login=lambda x: onlogin_callback(x, settings_file_path),
@@ -311,11 +311,13 @@ def run():
         exit(99)
 
     if user_username != api.authenticated_user_name:
-        logger.warn(
+        logger.warning(
             'Authenticated username mismatch: %s vs %s'
             % (user_username, api.authenticated_user_name))
 
     retry_attempts = 2
+    res = {}
+    ig_user_id = ''
     for i in range(1, 1 + retry_attempts):
         try:
             # Alow user to save an api call if they directly specify the IG numeric user ID
@@ -333,7 +335,7 @@ def run():
         except ClientLoginRequiredError as e:
             if i < retry_attempts:
                 # Probably because user has changed password somewhere else
-                logger.warn('ClientLoginRequiredError. Logging in again...')
+                logger.warning('ClientLoginRequiredError. Logging in again...')
                 api = Client(
                     user_username, user_password,
                     on_login=lambda x: onlogin_callback(x, settings_file_path),
@@ -349,7 +351,7 @@ def run():
 
     if broadcast['broadcast_status'] not in ['active']:
         # Usually because it's interrupted
-        logger.warn('Broadcast status is currently: %s' % broadcast['broadcast_status'])
+        logger.warning('Broadcast status is currently: %s' % broadcast['broadcast_status'])
 
     # check if output dir exists, create if otherwise
     if not os.path.exists(userconfig.outputdir):
@@ -411,9 +413,9 @@ def run():
 
     # Callback func used by downloaded to check if broadcast is still alive
     def check_status():
-        broadcast_info = api.broadcast_info(broadcast['id'])
-        logger.info('Broadcast Status Check: %s' % broadcast_info['broadcast_status'])
-        return broadcast_info['broadcast_status'] not in ['active', 'interrupted']
+        heartbeat_info = api.broadcast_heartbeat_and_viewercount(broadcast['id'])
+        logger.info('Broadcast Status Check: %s' % heartbeat_info['broadcast_status'])
+        return heartbeat_info['broadcast_status'] not in ['active', 'interrupted']
 
     dl = Downloader(
         mpd=mpd_url,
@@ -447,14 +449,14 @@ def run():
                     first_comment_created_at = comments[0]['created_at_utc'] if comments else int(time.time() - 5)
                 except (SSLError, timeout, URLError, HTTPException, SocketError) as e:
                     # Probably transient network error, ignore and continue
-                    logger.warn('Comment collection error: %s' % e)
+                    logger.warning('Comment collection error: %s' % e)
                     continue
                 except ClientError as e:
                     if e.code == 500:
-                        logger.warn('Comment collection ClientError: %d %s' % (e.code, e.error_response))
+                        logger.warning('Comment collection ClientError: %d %s' % (e.code, e.error_response))
                         continue
                     elif e.code == 400 and not e.msg:   # 400 error fail but no error message
-                        logger.warn('Comment collection ClientError: %d %s' % (e.code, e.error_response))
+                        logger.warning('Comment collection ClientError: %d %s' % (e.code, e.error_response))
                         continue
                     raise e
 
@@ -501,7 +503,7 @@ def run():
     try:
         dl.run()
     except KeyboardInterrupt:
-        logger.warn('Download interrupted.')
+        logger.warning('Download interrupted.')
         # Wait for download threads to complete
         if not dl.is_aborted:
             dl.stop()
@@ -555,4 +557,4 @@ def run():
                 webbrowser.open_new_tab('file://' + os.path.abspath(final_output))
 
         except KeyboardInterrupt:
-            logger.warn('Assembling interrupted.')
+            logger.warning('Assembling interrupted.')
