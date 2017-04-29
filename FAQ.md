@@ -23,6 +23,9 @@ Then try again with:
 ```bash
 livestream_dl "interesting.streamer"
 ```
+
+***
+
 ### Figuring out how much of a live stream is missed
 
 In addition to the ``.mp4`` file downloaded, there is an accompanying ``.json`` file. Open the ``.json`` file in any text editor (example Notepad) and look for 2 values ``initial_buffered_duration`` and ``delay``.
@@ -38,8 +41,12 @@ Example:
 
 Therefore in this example, the download missed the first ``15 - 10.01 = 5 seconds`` of the live stream.
 
+***
+
 ### Running livestream_dl recursively
 The recommended way is to use a bash/batch script. For Windows, you may review the conversation in this [issue](https://github.com/taengstagram/instagram-livestream-downloader/issues/5) to get started.
+
+***
 
 ### "FileNotFoundError: [WinError 2] The system cannot find the file specified"
 If you see this error while assembling files, you probably don't have ffmpeg installed, or if you did, you did not set it properly in ``PATH``.
