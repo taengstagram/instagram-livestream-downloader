@@ -33,18 +33,19 @@ Enter the account password when prompted. As the script runs, you should see som
 ```
 INSTAGRAM LIVESTREAM DOWNLOADER (v0.3.0)
 =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-Password for jane: 
+Type in the password for jane and press "Enter"
+(Your password will not show on screen):
 ------------------------------------------------------------------
 Broadcast by: johndoe 	(17849164549199999)
 Viewers: 418 		Started: 2m 33s ago
 Dash URL: https://scontent-xxx3-1.cdninstagram.com/hvideo-frc1/v/dash-hd/17849164549199999.mpd
 ------------------------------------------------------------------
-Downloading into downloaded/20170301_1337_johndoe_17849164549199999_downloads/ ...
+Downloading into downloaded/20170301_johndoe_17849164549199999_downloads/ ...
 [i] To interrupt the download, press CTRL+C
 Broadcast Status Check: stopped
 Assembling files....
 ------------------------------------------------------------------
-Generated file: downloaded/20170301_1337_johndoe_17849164549199999.mp4
+Generated file: downloaded/20170301_johndoe_17849164549199999.mp4
 ------------------------------------------------------------------
 ```
 
@@ -68,7 +69,7 @@ Get update notifications using [IFTTT](https://ifttt.com) and the [release RSS f
 
 ## Problems?
 
-If your problem isn't already covered in the [FAQ](FAQ.md), please submit a [new issue](https://github.com/taengstagram/instagram-livestream-downloader/issues/new). Make sure to provide the information required to diagnose the problem.
+If your problem isn't already covered in the [FAQ](FAQ.md) or not already an existing issue (closed/open), please submit a [new issue](https://github.com/taengstagram/instagram-livestream-downloader/issues/new). Make sure to provide the information required to diagnose the problem.
 
 ## Uninstall
 
