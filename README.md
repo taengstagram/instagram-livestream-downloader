@@ -78,3 +78,7 @@ Simply run:
 ```bash
 pip uninstall instagram-livestream-downloader
 ```
+
+## Disclaimer
+
+This is not affliated, endorsed or certified by Instagram. Use at your own risk.
