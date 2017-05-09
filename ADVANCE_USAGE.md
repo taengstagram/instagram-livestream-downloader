@@ -26,9 +26,9 @@ Use ``livestream_dl -h`` to see the full list of available options.
 * ``-openwhendone``
     - Open assembled file in the default webbrowser
 * ``-mpdtimeout``
-    - Set timeout interval for mpd download
+    - Set timeout interval in seconds for mpd download
 * ``-downloadtimeout``
-    - Set timeout interval for segments download
+    - Set timeout interval in seconds for segments download
 * ``-verbose``
     - Enable verbose messages for debugging
 * ``-ffmpegbinary``

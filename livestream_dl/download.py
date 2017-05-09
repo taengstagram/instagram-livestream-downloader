@@ -168,10 +168,10 @@ def run():
     parser.add_argument('-openwhendone', action='store_true',
                         help='Automatically open movie file when completed.')
     parser.add_argument('-mpdtimeout', dest='mpdtimeout', type=int,
-                        help='Set timeout interval for mpd download. Default %d.'
+                        help='Set timeout interval in seconds for mpd download. Default %d.'
                              % Downloader.MPD_DOWNLOAD_TIMEOUT)
     parser.add_argument('-downloadtimeout', dest='downloadtimeout', type=int,
-                        help='Set timeout interval for segments download. Default %d.'
+                        help='Set timeout interval in seconds for segments download. Default %d.'
                              % Downloader.DOWNLOAD_TIMEOUT)
     parser.add_argument('-ffmpegbinary', dest='ffmpegbinary', type=str,
                         help='Custom path to ffmpeg binary.')
