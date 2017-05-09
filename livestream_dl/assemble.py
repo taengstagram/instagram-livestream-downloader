@@ -116,7 +116,7 @@ def main():
 
     ffmpeg_binary = os.getenv('FFMPEG_BINARY', 'ffmpeg')
     cmd = [
-        ffmpeg_binary, '-loglevel', 'panic',
+        ffmpeg_binary, '-loglevel', 'error',
         '-i', audio_stream,
         '-i', video_stream,
         '-c:v', 'copy', '-c:a', 'copy', args.output_filename]
