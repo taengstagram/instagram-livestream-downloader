@@ -349,9 +349,12 @@ def run():
 
     broadcast = res['broadcast']
 
-    if broadcast['broadcast_status'] not in ['active']:
+    if broadcast['broadcast_status'] != 'active':
         # Usually because it's interrupted
         logger.warning('Broadcast status is currently: %s' % broadcast['broadcast_status'])
+        logger.info('Please try again shortly.')
+        # Don't try to start download because it may lead to a corrupted video file
+        exit(1)
 
     # check if output dir exists, create if otherwise
     if not os.path.exists(userconfig.outputdir):
@@ -446,7 +449,8 @@ def run():
                     comments_res = api.broadcast_comments(
                         broadcast['id'], last_comment_ts=first_comment_created_at)
                     comments = comments_res.get('comments', [])
-                    first_comment_created_at = comments[0]['created_at_utc'] if comments else int(time.time() - 5)
+                    first_comment_created_at = (
+                        comments[0]['created_at_utc'] if comments else int(time.time() - 5))
                 except (SSLError, timeout, URLError, HTTPException, SocketError) as e:
                     # Probably transient network error, ignore and continue
                     logger.warning('Comment collection error: %s' % e)
