@@ -5,7 +5,7 @@ __author__ = 'taengstagram'
 __email__ = 'taengstagram@gmail.com'
 __version__ = '0.3.1'
 
-_api_version = '1.2.6'
+_api_version = '1.3.0'
 _api_extensions_version = '0.2.8'
 
 long_description = '''
