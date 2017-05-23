@@ -28,10 +28,16 @@ except ImportError:
     from http.client import HTTPException
     from configparser import SafeConfigParser
 
-from .utils import (
-    Formatter, UserConfig, check_for_updates,
-    to_json, from_json, generate_safe_path
-)
+try:
+    from .utils import (
+        Formatter, UserConfig, check_for_updates,
+        to_json, from_json, generate_safe_path
+    )
+except ValueError:
+    from utils import (
+        Formatter, UserConfig, check_for_updates,
+        to_json, from_json, generate_safe_path
+    )
 
 from instagram_private_api import (
     Client, ClientError, ClientCookieExpiredError, ClientLoginRequiredError
@@ -352,9 +358,6 @@ def run():
     if broadcast['broadcast_status'] != 'active':
         # Usually because it's interrupted
         logger.warning('Broadcast status is currently: %s' % broadcast['broadcast_status'])
-        logger.info('Please try again shortly.')
-        # Don't try to start download because it may lead to a corrupted video file
-        exit(1)
 
     # check if output dir exists, create if otherwise
     if not os.path.exists(userconfig.outputdir):

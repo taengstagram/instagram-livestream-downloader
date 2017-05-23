@@ -19,9 +19,12 @@ import logging
 import glob
 import subprocess
 import json
-from .utils import Formatter
-from .download import generate_srt
-
+try:
+    from .utils import Formatter
+    from .download import generate_srt
+except ValueError:
+    from utils import Formatter
+    from download import generate_srt
 
 def _get_file_index(filename):
     """ Extract the numbered index in filename for sorting """
@@ -49,6 +52,8 @@ def main():
                         help='File path for the generated video.')
     parser.add_argument('-c', dest='comments_json_file',
                         help='File path to the comments json file.')
+    parser.add_argument('--repair', '-r', dest='repair', action='store_true',
+                        help='Try to repair download segments')
     parser.add_argument('-cleanup', action='store_true', help='Clean up output_dir and temp files')
     parser.add_argument('-openwhendone', action='store_true', help='Open final generated file')
     parser.add_argument('-v', dest='verbose', action='store_true', help='Turn on verbose debug')
@@ -103,6 +108,9 @@ def main():
             glob.glob(os.path.join(args.output_dir, '%s-*.m4v' % stream_id))))
         files = sorted(files, key=lambda x: _get_file_index(x))
         for f in files:
+            if f.endswith('-init.m4v') and args.repair:
+                logger.info('Replacing %s' % f)
+                f = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'repair', 'init.m4v')
             with open(f, 'rb') as readfile:
                 try:
                     shutil.copyfileobj(readfile, outfile)
@@ -116,7 +124,7 @@ def main():
 
     ffmpeg_binary = os.getenv('FFMPEG_BINARY', 'ffmpeg')
     cmd = [
-        ffmpeg_binary, '-loglevel', 'error',
+        ffmpeg_binary, '-loglevel', 'error', '-y',
         '-i', audio_stream,
         '-i', video_stream,
         '-c:v', 'copy', '-c:a', 'copy', args.output_filename]
