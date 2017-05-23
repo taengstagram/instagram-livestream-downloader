@@ -26,6 +26,7 @@ except ValueError:
     from utils import Formatter
     from download import generate_srt
 
+
 def _get_file_index(filename):
     """ Extract the numbered index in filename for sorting """
     mobj = re.match(r'.+\-(?P<idx>[0-9]+)\.[a-z]+', filename)
