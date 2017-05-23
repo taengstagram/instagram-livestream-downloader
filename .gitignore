@@ -3,7 +3,7 @@ livestream_dl.cfg
 *.json
 output*/
 download/
-venv/
+venv*/
 
 *.iml
 .idea/
