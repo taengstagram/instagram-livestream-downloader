@@ -37,6 +37,7 @@ setup(
         'https://github.com/ping/instagram_private_api_extensions/archive/%(ext)s.tar.gz'
         '#egg=instagram_private_api_extensions-%(ext)s' % {'ext': _api_extensions_version}
     ],
+    include_package_data=True,
     platforms='any',
     long_description=long_description,
     keywords='instagram livestream downloader',
