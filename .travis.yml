@@ -23,7 +23,8 @@ script:
 - flake8 --max-line-length=120 livestream_dl/
 - livestream_dl -h
 - livestream_as -o test_assemble/downloads/ -f test_assemble.mp4 -c test_assemble/sample_comments.json test_assemble/sample.json
-- ls test_assemble.mp4 test_assemble.srt
+- grep Bonjour test_assemble.srt
+- ffprobe -v quiet -print_format json -show_format test_assemble.mp4
 
 branches:
   only:
