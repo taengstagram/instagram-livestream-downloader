@@ -28,22 +28,15 @@ except ImportError:
     from http.client import HTTPException
     from configparser import SafeConfigParser
 
-try:
-    from .utils import (
-        Formatter, UserConfig, check_for_updates,
-        to_json, from_json, generate_safe_path
-    )
-except ValueError:
-    from utils import (
-        Formatter, UserConfig, check_for_updates,
-        to_json, from_json, generate_safe_path
-    )
-
 from instagram_private_api import (
     Client, ClientError, ClientCookieExpiredError, ClientLoginRequiredError
 )
 from instagram_private_api_extensions.live import (
     Downloader, logger as dash_logger
+)
+from .utils import (
+    Formatter, UserConfig, check_for_updates,
+    to_json, from_json, generate_safe_path
 )
 
 
@@ -520,6 +513,7 @@ def run():
 
         # Record the initial_buffered_duration
         broadcast['initial_buffered_duration'] = dl.initial_buffered_duration
+        broadcast['segments'] = dl.segment_meta
         with open(meta_json_file, 'w') as outfile:
             json.dump(broadcast, outfile, indent=2)
 
@@ -534,11 +528,13 @@ def run():
         logger.info('Assembling files....')
         final_output = generate_safe_path('%s.mp4' % filename_prefix, userconfig.outputdir)
 
-        dl.stitch(final_output, skipffmpeg=userconfig.skipffmpeg, cleartempfiles=(not userconfig.nocleanup))
+        generated_files = dl.stitch(
+            final_output, skipffmpeg=userconfig.skipffmpeg,
+            cleartempfiles=(not userconfig.nocleanup))
 
         logger.info(rule_line)
         if not userconfig.skipffmpeg:
-            logger.info('Generated file: %s' % final_output)
+            logger.info('Generated file(s): \n%s' % '\n'.join(generated_files))
         else:
             logger.info('Skipped generating file.')
         logger.info(rule_line)

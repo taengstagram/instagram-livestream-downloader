@@ -45,7 +45,8 @@ Downloading into downloaded/20170301_johndoe_17849164549199999_downloads/ ...
 Broadcast Status Check: stopped
 Assembling files....
 ------------------------------------------------------------------
-Generated file: downloaded/20170301_johndoe_17849164549199999.mp4
+Generated file(s):
+downloaded/20170301_johndoe_17849164549199999.mp4
 ------------------------------------------------------------------
 ```
 

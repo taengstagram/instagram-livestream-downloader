@@ -6,7 +6,7 @@ __email__ = 'taengstagram@gmail.com'
 __version__ = '0.3.4'
 
 _api_version = '1.3.0'
-_api_extensions_version = '0.3.0'
+_api_extensions_version = '0.3.2'
 
 long_description = '''
 ``livestream_dl`` is a Python console script that downloads an Instagram Live stream.
@@ -24,7 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'livestream_dl = livestream_dl.__main__:main',
-            'livestream_as = livestream_dl.assemble:main',
+            'livestream_as = livestream_dl.assemble:main [AS]',
         ]
     },
     install_requires=[
@@ -37,6 +37,9 @@ setup(
         'https://github.com/ping/instagram_private_api_extensions/archive/%(ext)s.tar.gz'
         '#egg=instagram_private_api_extensions-%(ext)s' % {'ext': _api_extensions_version}
     ],
+    extras_require={
+        'AS': ['moviepy>=0.2.3.2'],
+    },
     include_package_data=True,
     platforms='any',
     long_description=long_description,

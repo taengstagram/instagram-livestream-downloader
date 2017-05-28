@@ -1,16 +1,5 @@
 #!/usr/bin/env python
 
-"""
-A utility script to assemble downloaded segments into a valid video file.
-
-Usage Example:
-python assemble.py 'downloaded/johndoe_17849164549199999_1486300000.json' \
--o 'downloaded/downloads_johndoe_17849164549199999_1486300000/' \
--c 'downloaded/johndoe_17849164549199999_1486300000_comments.json' \
--f 'downloaded/johndoe_17849164549199999_1486300000.mp4'
-
-"""
-
 import os
 import shutil
 import argparse
@@ -19,12 +8,10 @@ import logging
 import glob
 import subprocess
 import json
-try:
-    from .utils import Formatter
-    from .download import generate_srt
-except ValueError:
-    from utils import Formatter
-    from download import generate_srt
+
+from .utils import Formatter, generate_safe_path
+from .download import generate_srt
+from moviepy.video.io.VideoFileClip import VideoFileClip
 
 
 def _get_file_index(filename):
@@ -56,7 +43,6 @@ def main():
     parser.add_argument('--repair', '-r', dest='repair', action='store_true',
                         help='Try to repair download segments')
     parser.add_argument('-cleanup', action='store_true', help='Clean up output_dir and temp files')
-    parser.add_argument('-openwhendone', action='store_true', help='Open final generated file')
     parser.add_argument('-v', dest='verbose', action='store_true', help='Turn on verbose debug')
     parser.add_argument('-log', dest='log_file_path', help='Log to file specified.')
     args = parser.parse_args()
@@ -84,60 +70,132 @@ def main():
     download_start_time = broadcast_info['published_time'] + (
         broadcast_info['delay'] if broadcast_info['delay'] > 0 else 0)
 
-    audio_stream = os.path.join(args.output_dir, 'assembled_source_%s_m4a.tmp' % stream_id)
-    video_stream = os.path.join(args.output_dir, 'assembled_source_%s_mp4.tmp' % stream_id)
-
-    with open(audio_stream, 'wb') as outfile:
-        logger.info('Assembling audio stream... %s' % audio_stream)
-        files = list(filter(
-            os.path.isfile,
-            glob.glob(os.path.join(args.output_dir, '%s-*.m4a' % stream_id))))
-        files = sorted(files, key=lambda x: _get_file_index(x))
-        for f in files:
-            with open(f, 'rb') as readfile:
-                try:
-                    shutil.copyfileobj(readfile, outfile)
-                except IOError as e:
-                    logger.error('Error processing %s' % f)
-                    logger.error(e)
-                    raise e
-
-    with open(video_stream, 'wb') as outfile:
-        logger.info('Assembling video stream... %s' % video_stream)
-        files = list(filter(
+    post_v034 = False
+    segment_meta = broadcast_info.get('segments', {})
+    if segment_meta:
+        post_v034 = True
+        all_segments = [
+            os.path.join(args.output_dir, k)
+            for k in broadcast_info['segments'].keys()]
+    else:
+        all_segments = list(filter(
             os.path.isfile,
             glob.glob(os.path.join(args.output_dir, '%s-*.m4v' % stream_id))))
-        files = sorted(files, key=lambda x: _get_file_index(x))
-        for f in files:
-            if f.endswith('-init.m4v') and args.repair:
-                logger.info('Replacing %s' % f)
-                f = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'repair', 'init.m4v')
-            with open(f, 'rb') as readfile:
-                try:
-                    shutil.copyfileobj(readfile, outfile)
-                except IOError as e:
-                    logger.error('Error processing %s' % f)
-                    logger.error(e)
-                    raise e
 
-    assert os.path.isfile(audio_stream)
-    assert os.path.isfile(video_stream)
+    all_segments = sorted(all_segments, key=lambda x: _get_file_index(x))
+    prev_res = ''
+    sources = []
+    audio_stream_format = 'assembled_source_{0}_{1}_mp4.tmp'
+    video_stream_format = 'assembled_source_{0}_{1}_m4a.tmp'
+    video_stream = ''
+    audio_stream = ''
 
-    ffmpeg_binary = os.getenv('FFMPEG_BINARY', 'ffmpeg')
-    cmd = [
-        ffmpeg_binary, '-loglevel', 'error', '-y',
-        '-i', audio_stream,
-        '-i', video_stream,
-        '-c:v', 'copy', '-c:a', 'copy', args.output_filename]
-    logger.info('Executing: "%s"' % ' '.join(cmd))
-    exit_code = subprocess.call(cmd)
+    pre_v034 = os.path.isfile(os.path.join(args.output_dir, '%s-init.m4v' % stream_id))
 
-    assert not exit_code, 'ffmpeg exited with the code: %s' % exit_code
-    assert os.path.isfile(args.output_filename), '%s not generated.' % args.output_filename
+    for segment in all_segments:
 
-    logger.info('---------------------------------------------')
-    logger.info('Generated file: %s' % args.output_filename)
-    logger.info('---------------------------------------------')
+        if not os.path.isfile(segment.replace('.m4v', '.m4a')):
+            logger.warning('Audio segment not found: {0!s}'.format(segment.replace('.m4v', '.m4a')))
+            continue
+
+        if segment.endswith('-init.m4v') and args.repair:
+            logger.info('Replacing %s' % segment)
+            segment = os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), 'repair', 'init.m4v')
+
+        if segment.endswith('-0.m4v') and args.repair and not pre_v034:
+            # From >= v0.3.4 onwards, the init segment is prepended to the m4v
+            # so instead of patching the init bytes, we just skip the -0.m4v
+            # since it's most likely the faulty one
+            logger.info('Dropped %s' % segment)
+            continue
+
+        video_stream = os.path.join(
+            args.output_dir, video_stream_format.format(stream_id, len(sources)))
+        audio_stream = os.path.join(
+            args.output_dir, audio_stream_format.format(stream_id, len(sources)))
+
+        try:
+            if pre_v034:
+                # Don't try to probe with moviepy
+                # Just do appending
+                file_mode = 'ab'
+            else:
+                if not post_v034:
+                    # no segments meta info
+                    vidclip = VideoFileClip(segment)
+                    vid_width, vid_height = vidclip.size
+                    curr_res = '%sx%s' % (vid_width, vid_height)
+                    if prev_res and prev_res != curr_res:
+                        sources.append({'video': video_stream, 'audio': audio_stream})
+                        video_stream = os.path.join(
+                            args.output_dir, video_stream_format.format(stream_id, len(sources)))
+                        audio_stream = os.path.join(
+                            args.output_dir, audio_stream_format.format(stream_id, len(sources)))
+
+                    # Fresh init segment
+                    file_mode = 'wb'
+                    prev_res = curr_res
+                else:
+                    # Use segments meta info
+                    if prev_res and prev_res != segment_meta[os.path.basename(segment)]:
+                        # resolution changed detected
+                        sources.append({'video': video_stream, 'audio': audio_stream})
+                        video_stream = os.path.join(
+                            args.output_dir, video_stream_format.format(stream_id, len(sources)))
+                        audio_stream = os.path.join(
+                            args.output_dir, audio_stream_format.format(stream_id, len(sources)))
+                        file_mode = 'wb'
+                    else:
+                        file_mode = 'ab'
+
+                    prev_res = segment_meta[os.path.basename(segment)]
+
+        except IOError:
+            # Not a fresh init segment
+            file_mode = 'ab'
+
+        with open(video_stream, file_mode) as outfile,\
+                open(segment, 'rb') as readfile:
+            shutil.copyfileobj(readfile, outfile)
+            logger.debug(
+                'Assembling video stream {0!s} => {1!s}'.format(
+                    os.path.basename(segment), os.path.basename(video_stream)))
+
+        with open(audio_stream, file_mode) as outfile,\
+                open(segment.replace('.m4v', '.m4a'), 'rb') as readfile:
+            shutil.copyfileobj(readfile, outfile)
+            logger.debug(
+                'Assembling audio stream {0!s} => {1!s}'.format(
+                    os.path.basename(segment), os.path.basename(audio_stream)))
+
+    if audio_stream and video_stream:
+        sources.append({'video': video_stream, 'audio': audio_stream})
+
+    for n, source in enumerate(sources):
+        dir_name = os.path.dirname(args.output_filename)
+        file_name = os.path.basename(args.output_filename)
+        output_filename = generate_safe_path(file_name, dir_name, is_file=True)
+        ffmpeg_binary = os.getenv('FFMPEG_BINARY', 'ffmpeg')
+        cmd = [
+            ffmpeg_binary, '-loglevel', 'warning', '-y',
+            '-i', source['audio'],
+            '-i', source['video'],
+            '-c:v', 'copy', '-c:a', 'copy', output_filename]
+        logger.info('Executing: "%s"' % ' '.join(cmd))
+        exit_code = subprocess.call(cmd)
+
+        assert not exit_code, 'ffmpeg exited with the code: %s' % exit_code
+        assert os.path.isfile(output_filename), '%s not generated.' % output_filename
+
+        if args.cleanup and not exit_code:
+            logger.debug('Cleaning up files... \n%s\n%s' % (source['audio'], source['video']))
+            os.remove(source['audio'])
+            os.remove(source['video'])
+
+        logger.info('---------------------------------------------')
+        logger.info('Generated file: %s' % output_filename)
+        logger.info('---------------------------------------------')
 
     if args.comments_json_file:
         # convert json to srt
@@ -157,13 +215,6 @@ def main():
 
         assert os.path.isfile(srt_file), '%s not generated.' % srt_file
         logger.info('Comments written to: %s' % srt_file)
-
-    if args.cleanup and not exit_code:
-        logger.debug('Cleaning up files...')
-        for f in glob.glob(os.path.join(args.output_dir, '%s-*.*' % stream_id)):
-            os.remove(f)
-        os.remove(audio_stream)
-        os.remove(video_stream)
 
 
 if __name__ == '__main__':
