@@ -5,6 +5,7 @@ import sys
 import os
 import re
 import itertools
+import warnings
 
 from instagram_private_api.compat import compat_urllib_request
 
@@ -86,6 +87,12 @@ class UserConfig(object):
                         value = [i.strip() for i in items.split(',')]
                 else:
                     value = self.configparser.get(self.section, key)
+                if not value:
+                    warnings.warn(
+                        'Empty settings in the config file will cause '
+                        'errors in a future version. Please remove "%s=" '
+                        'from livestream_dl.cfg as soon as possible.' % key,
+                        FutureWarning, stacklevel=9)
         except ValueError:
             pass
 
