@@ -40,7 +40,7 @@ from .utils import (
 )
 
 
-__version__ = '0.3.4'
+__version__ = '0.3.5'
 
 USERNAME_ENV_KEY = 'IG_LOGIN_USERNAME'
 PASSWORD_ENV_KEY = 'IG_LOGIN_PASSWORD'
