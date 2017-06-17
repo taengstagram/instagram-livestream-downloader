@@ -288,7 +288,8 @@ def run():
                 cached_settings.pop(key, None)
             api = Client(
                 user_username, user_password,
-                settings=cached_settings)
+                settings=cached_settings,
+                **custom_device)
 
     except (ClientCookieExpiredError, ClientLoginRequiredError) as e:
         logger.warning('ClientCookieExpiredError/ClientLoginRequiredError: %s' % e)
@@ -341,6 +342,14 @@ def run():
                     **custom_device)
             else:
                 raise e
+
+        except (SSLError, timeout, URLError, HTTPException, SocketError) as e:
+            if i < retry_attempts:
+                logger.warning(str(e))
+                time.sleep(userconfig.downloadtimeout)
+            else:
+                logger.error(str(e))
+                exit(99)
 
     if not res.get('broadcast'):
         logger.info('No broadcast from %s' % ig_user_id)
