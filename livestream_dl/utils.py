@@ -87,7 +87,7 @@ class UserConfig(object):
                         value = [i.strip() for i in items.split(',')]
                 else:
                     value = self.configparser.get(self.section, key)
-                if not value:
+                if value is None or value == '':
                     warnings.warn(
                         'Empty settings in the config file will cause '
                         'errors in a future version. Please remove "%s=" '
