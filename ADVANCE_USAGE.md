@@ -38,7 +38,7 @@ Use ``livestream_dl -h`` to see the full list of available options.
 * ``-log``
     - Save all messages to the log file path specified
 * ``-filenameformat``
-    - Specify a custom filename format. The default format ``'{year}{month}{day}_{username}_{broadcastid}'`` will generate a filename like ``20161231_johndoe_987654321.mp4``
+    - Specify a custom filename format. The default format ``'{year}{month}{day}_{username}_{broadcastid}_{broadcasttype}'`` will generate a filename like ``20161231_johndoe_987654321_live.mp4``
     - Custom variables supported:
         - ``{year}``
         - ``{month}``
@@ -47,7 +47,9 @@ Use ``livestream_dl -h`` to see the full list of available options.
         - ``{minute}``
         - ``{username}``
         - ``{broadcastid}``
-
+        - ``{broadcasttype}``
+* ``-noreplay``
+    - Don't download replay streams
 * ``-ignoreconfig``
     - Ignore the config file if present
 * ``-version``

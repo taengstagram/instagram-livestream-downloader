@@ -1,6 +1,6 @@
 # Instagram Live Stream Downloader [![Release](https://img.shields.io/badge/latest_release-v0.3.6-ff4980.svg)](https://github.com/taengstagram/instagram-livestream-downloader/releases)
 
-``livestream_dl`` is a Python console script that downloads an Instagram Live stream. It only downloads a stream that is *currently* ongoing, and cannot capture any part of a stream that has already passed.
+``livestream_dl`` is a Python console script that downloads an Instagram Live stream. It only downloads a stream that is available for *replay*, or *currently ongoing*, and cannot capture any part of a stream that has already passed.
 
 Python 2.7 and >=3.5 compatible.
 
@@ -36,19 +36,39 @@ INSTAGRAM LIVESTREAM DOWNLOADER (v0.3.6)
 Type in the password for jane and press "Enter"
 (Your password will not show on screen):
 ------------------------------------------------------------------
-Broadcast by: johndoe 	(17849164549199999)
+Broadcast by: johndoe 	(17849164549199999)  Type: Live
 Viewers: 418 		Started: 2m 33s ago
 Dash URL: https://scontent-xxx3-1.cdninstagram.com/hvideo-frc1/v/dash-hd/17849164549199999.mpd
 ------------------------------------------------------------------
-Downloading into downloaded/20170301_johndoe_17849164549199999_downloads/ ...
+Downloading into downloaded/20170301_johndoe_17849164549199999_live_downloads/ ...
 [i] To interrupt the download, press CTRL+C
 Broadcast Status Check: stopped
 Assembling files....
 ------------------------------------------------------------------
 Generated file(s):
-downloaded/20170301_johndoe_17849164549199999.mp4
+downloaded/20170301_johndoe_17849164549199999_live.mp4
 ------------------------------------------------------------------
 ```
+
+If it is a [replay](http://blog.instagram.com/post/162048719842/160720-replay-live-stories) download, you'll see something like:
+
+```
+INSTAGRAM LIVESTREAM DOWNLOADER (v0.3.6)
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
+Type in the password for jane and press "Enter"
+(Your password will not show on screen):
+------------------------------------------------------------------
+Broadcast by: johndoe 	(17849164549199999)  Type: Replay
+Duration: 4m 18s 		Started: 5m 30s ago
+------------------------------------------------------------------
+Downloading into downloaded/20170301_johndoe_17849164549199999_replay_downloads/ ...
+[i] To interrupt the download, press CTRL+C
+------------------------------------------------------------------
+Generated file(s):
+downloaded/20170301_johndoe_17849164549199999_replay.mp4
+------------------------------------------------------------------
+```
+
 
 You can refer to the [Advance Usage doc](ADVANCE_USAGE.md) for more options.
 
