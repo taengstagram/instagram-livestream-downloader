@@ -7,16 +7,15 @@ import time
 import datetime
 import argparse
 import getpass
-import re
 import json
 import threading
 import webbrowser
-import codecs
 import shutil
 import subprocess
 from socket import timeout, error as SocketError
 from ssl import SSLError
 from string import Formatter as StringFormatter
+import glob
 try:
     # py2
     from urllib2 import URLError
@@ -34,10 +33,15 @@ from instagram_private_api import (
 from instagram_private_api_extensions.live import (
     Downloader, logger as dash_logger
 )
+from instagram_private_api_extensions.replay import (
+    Downloader as ReplayDownloader, logger as replay_dash_logger
+)
+
 from .utils import (
     Formatter, UserConfig, check_for_updates,
     to_json, from_json, generate_safe_path
 )
+from .comments import CommentsDownloader
 
 
 __version__ = '0.3.6'
@@ -53,6 +57,7 @@ formatter = Formatter()
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 dash_logger.addHandler(ch)
+replay_dash_logger.addHandler(ch)
 
 api_logger = logging.getLogger('instagram_private_api')
 api_logger.addHandler(ch)
@@ -68,59 +73,6 @@ def onlogin_callback(api, new_settings_file):
         logger.debug('Saved settings: %s' % new_settings_file)
 
 
-def generate_srt(comments, download_start_time, srt_file, comments_delay=10.0):
-    """
-    Generate a valid srt file from the list of comments.
-
-    comments_delay is to compensate for the 10s video buffer available when
-    we first begin downloading (segment timeline has 10 segments). This buffer
-    is variable because the duration of the segment varies, so 10s is just
-    an average.
-    """
-    subtitles_timeline = {}
-    for i, c in enumerate(comments):
-        # grouped closely timed comments into 2s blocks so that we can give it enough onscreen time
-        created_at_utc = str(2 * (c['created_at_utc'] // 2))
-        comment_list = subtitles_timeline.get(created_at_utc) or []
-        comment_list.append(c)
-        subtitles_timeline[created_at_utc] = comment_list
-
-    if subtitles_timeline:
-        timestamps = sorted(subtitles_timeline.keys())
-        mememe = False
-        subs = []
-        for i, tc in enumerate(timestamps):
-            t = subtitles_timeline[tc]
-            clip_start = int(tc) - download_start_time + int(comments_delay)
-            if clip_start < 0:
-                clip_start = 0
-            clip_end = clip_start + 2
-
-            if i == 0 and clip_start > 0:
-                # Generate a caveat message if there is a gap available
-                mememe = True
-                mememe_start = 0
-                mememe_end = min(3, clip_start - 1)
-                srt = '%(index)d\n%(start)s --> %(end)s\n%(text)s\n\n' % {
-                    'index': 1,
-                    'start': time.strftime('%H:%M:%S,001', time.gmtime(mememe_start)),
-                    'end': time.strftime('%H:%M:%S,000', time.gmtime(mememe_end)),
-                    'text': 'Comment stream timing is slightly modified for easier viewing'
-                }
-                subs.append(srt)
-
-            srt = '%(index)d\n%(start)s --> %(end)s\n%(text)s\n\n' % {
-                'index': i + (1 if not mememe else 2),
-                'start': time.strftime('%H:%M:%S,001', time.gmtime(clip_start)),
-                'end': time.strftime('%H:%M:%S,000', time.gmtime(clip_end)),
-                'text': '\n'.join(['%s: %s' % (c['user']['username'], c['text']) for c in t])
-            }
-            subs.append(srt)
-
-        with codecs.open(srt_file, 'w', 'utf-8-sig') as srt_outfile:
-            srt_outfile.write(''.join(subs))
-
-
 def check_ffmpeg(binary_path):
     ffmpeg_binary = binary_path or os.getenv('FFMPEG_BINARY', 'ffmpeg')
     cmd = [
@@ -128,6 +80,39 @@ def check_ffmpeg(binary_path):
     logger.debug('Executing: "%s"' % ' '.join(cmd))
     exit_code = subprocess.call(cmd)
     logger.debug('Exit code: %s' % exit_code)
+
+
+def is_replay(broadcast):
+    return broadcast['broadcast_status'] == 'post_live' or 'dash_playback_url' not in broadcast
+
+
+def generate_filename_prefix(broadcast, userconfig):
+    if is_replay(broadcast):
+        broadcast_start = datetime.datetime.fromtimestamp(broadcast['published_time'])
+        broadcast_type = 'replay'
+    else:
+        broadcast_start = datetime.datetime.now()
+        broadcast_type = 'live'
+    format_args = {
+        'year': broadcast_start.strftime('%Y'),
+        'month': broadcast_start.strftime('%m'),
+        'day': broadcast_start.strftime('%d'),
+        'hour': broadcast_start.strftime('%H'),
+        'minute': broadcast_start.strftime('%M'),
+        'username': broadcast['broadcast_owner']['username'],
+        'broadcastid': broadcast['id'],
+        'broadcasttype': broadcast_type,
+    }
+    user_format_keys = StringFormatter().parse(userconfig.filenameformat)
+    invalid_user_format_keys = [
+        i[1] for i in user_format_keys if i[1] not in format_args.keys()]
+    if invalid_user_format_keys:
+        logger.error(
+            'Invalid filename format parameters: %s'
+            % ', '.join(invalid_user_format_keys))
+        exit(10)
+    filename_prefix = userconfig.filenameformat.format(**format_args)
+    return filename_prefix
 
 
 def run():
@@ -182,6 +167,8 @@ def run():
                         help='Log to file specified.')
     parser.add_argument('-filenameformat', dest='filenameformat', type=str,
                         help='Custom filename format.')
+    parser.add_argument('-noreplay', dest='noreplay', action='store_true',
+                        help='Do not download replay streams.')
     parser.add_argument('-ignoreconfig', dest='ignoreconfig', action='store_true',
                         help='Ignore the livestream_dl.cfg file.')
     parser.add_argument('-version', dest='version_check', action='store_true',
@@ -208,7 +195,7 @@ def run():
         'verbose': False,
         'skipffmpeg': False,
         'ffmpegbinary': None,
-        'filenameformat': '{year}{month}{day}_{username}_{broadcastid}',
+        'filenameformat': '{year}{month}{day}_{username}_{broadcastid}_{broadcasttype}',
     }
     userconfig = UserConfig(
         config_section, defaults=default_config,
@@ -218,15 +205,18 @@ def run():
         logger.setLevel(logging.DEBUG)
         api_logger.setLevel(logging.DEBUG)
         dash_logger.setLevel(logging.DEBUG)
+        replay_dash_logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
         dash_logger.setLevel(logging.INFO)
+        replay_dash_logger.setLevel(logging.INFO)
 
     if userconfig.log:
         file_handler = logging.FileHandler(userconfig.log)
         file_handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
         logger.addHandler(file_handler)
         dash_logger.addHandler(file_handler)
+        replay_dash_logger.addHandler(file_handler)
         api_logger.addHandler(file_handler)
 
     logger.info(description)
@@ -321,7 +311,7 @@ def run():
     for i in range(1, 1 + retry_attempts):
         try:
             # Alow user to save an api call if they directly specify the IG numeric user ID
-            if re.match('^\d+$', argparser.instagram_user):
+            if argparser.instagram_user.isdigit():
                 # is a numeric IG user ID
                 ig_user_id = argparser.instagram_user
             else:
@@ -351,222 +341,245 @@ def run():
                 logger.error(str(e))
                 exit(99)
 
-    if not res.get('broadcast'):
+    if not res.get('broadcast') and (
+            userconfig.noreplay or
+            not res.get('post_live_item', {}).get('broadcasts')):
         logger.info('No broadcast from %s' % ig_user_id)
         exit(0)
 
-    broadcast = res['broadcast']
+    if res.get('broadcast'):
+        broadcasts = [res['broadcast']]
+    else:
+        broadcasts = res['post_live_item']['broadcasts']
 
-    if broadcast['broadcast_status'] != 'active':
-        # Usually because it's interrupted
-        logger.warning('Broadcast status is currently: %s' % broadcast['broadcast_status'])
+    for broadcast in broadcasts:
+        if broadcast['broadcast_status'] not in ['active', 'post_live']:
+            # Usually because it's interrupted
+            logger.warning('Broadcast status is currently: %s' % broadcast['broadcast_status'])
 
-    # check if output dir exists, create if otherwise
-    if not os.path.exists(userconfig.outputdir):
-        os.makedirs(userconfig.outputdir)
+        # check if output dir exists, create if otherwise
+        if not os.path.exists(userconfig.outputdir):
+            os.makedirs(userconfig.outputdir)
 
-    now = datetime.datetime.now()
-    download_start_time = int(time.time())
-    format_args = {
-        'year': now.strftime('%Y'),
-        'month': now.strftime('%m'),
-        'day': now.strftime('%d'),
-        'hour': now.strftime('%H'),
-        'minute': now.strftime('%M'),
-        'username': broadcast['broadcast_owner']['username'],
-        'broadcastid': broadcast['id'],
-    }
-    user_format_keys = StringFormatter().parse(userconfig.filenameformat)
-    invalid_user_format_keys = [
-        i[1] for i in user_format_keys if i[1] not in format_args.keys()]
-    if invalid_user_format_keys:
-        logger.error(
-            'Invalid filename format parameters: %s'
-            % ', '.join(invalid_user_format_keys))
-        exit(10)
+        is_replay_broadcast = is_replay(broadcast)
 
-    filename_prefix = userconfig.filenameformat.format(**format_args)
+        download_start_time = int(time.time())
+        filename_prefix = generate_filename_prefix(broadcast, userconfig)
 
-    # dash_abr_playback_url has the higher def stream
-    mpd_url = broadcast.get('dash_abr_playback_url') or broadcast['dash_playback_url']
+        # dash_abr_playback_url has the higher def stream
+        mpd_url = (broadcast.get('dash_manifest')
+                   or broadcast.get('dash_abr_playback_url')
+                   or broadcast['dash_playback_url'])
 
-    # Print broadcast info to console
-    mins, secs = divmod((int(time.time()) - broadcast['published_time']), 60)
-    logger.info(rule_line)
-    logger.info('Broadcast by: %s \t(%s)' % (broadcast['broadcast_owner']['username'], broadcast['id']))
-    logger.info('Viewers: %d \t\tStarted: %s ago' % (
-        broadcast['viewer_count'],
-        ('%dm' % mins) + ((' %ds' % secs) if secs else '')
-    ))
-    logger.info('Dash URL: %s' % mpd_url)
-    logger.info(rule_line)
+        # Print broadcast info to console
+        logger.info(rule_line)
+        started_mins, started_secs = divmod((int(time.time()) - broadcast['published_time']), 60)
+        logger.info('Broadcast by: %s \t(%s)\tType: %s' % (
+            broadcast['broadcast_owner']['username'],
+            broadcast['id'],
+            'Live' if not is_replay_broadcast else 'Replay')
+        )
+        if not is_replay_broadcast:
+            started_label = '%dm' % started_mins
+            if started_secs:
+                started_label += ' %ds' % started_secs
+            logger.info(
+                'Viewers: %d \t\tStarted: %s ago' % (
+                    broadcast.get('viewer_count', 0),
+                    started_label)
+            )
+            logger.info('Dash URL: %s' % mpd_url)
+            logger.info(rule_line)
 
-    # Record the delay = duration of the stream that has been missed
-    broadcast['delay'] = download_start_time - broadcast['published_time']
+        # Record the delay = duration of the stream that has been missed
+        broadcast['delay'] = ((download_start_time - broadcast['published_time'])
+                              if not is_replay_broadcast else 0)
 
-    # folder path for downloaded segments
-    mpd_output_dir = generate_safe_path(
-        '%s_downloads' % filename_prefix, userconfig.outputdir, is_file=False)
+        # folder path for downloaded segments
+        mpd_output_dir = generate_safe_path(
+            '%s_downloads' % filename_prefix, userconfig.outputdir, is_file=False)
 
-    # file path to save the stream's info
-    meta_json_file = generate_safe_path('%s.json' % filename_prefix, userconfig.outputdir)
+        # file path to save the stream's info
+        meta_json_file = generate_safe_path('%s.json' % filename_prefix, userconfig.outputdir)
 
-    # file path to save collected comments
-    comments_json_file = generate_safe_path('%s_comments.json' % filename_prefix, userconfig.outputdir)
+        # file path to save collected comments
+        comments_json_file = generate_safe_path('%s_comments.json' % filename_prefix, userconfig.outputdir)
 
-    with open(meta_json_file, 'w') as outfile:
-        json.dump(broadcast, outfile, indent=2)
+        if is_replay_broadcast:
+            # ------------- REPLAY broadcast -------------
+            dl = ReplayDownloader(mpd=mpd_url, output_dir=mpd_output_dir, user_agent=api.user_agent)
+            duration = dl.duration
+            broadcast['duration'] = duration
+            if duration:
+                duration_mins, duration_secs = divmod(duration, 60)
+                if started_mins < 60:
+                    started_label = '%dm %ds' % (started_mins, started_secs)
+                else:
+                    started_label = '%dh %dm' % divmod(started_mins, 60)
+                logger.info(
+                    'Duration: %dm %ds \t\tStarted: %s ago' % (
+                        duration_mins, duration_secs, started_label)
+                )
+                logger.info(rule_line)
 
-    job_aborted = False
+            # Detect if this replay has already been downloaded
+            if glob.glob(os.path.join(userconfig.outputdir, '%s.*' % filename_prefix)):
+                # Already downloaded, so skip
+                logger.warning('This broadcast is already downloaded.')
+                continue
 
-    # Callback func used by downloaded to check if broadcast is still alive
-    def check_status():
-        heartbeat_info = api.broadcast_heartbeat_and_viewercount(broadcast['id'])
-        logger.info('Broadcast Status Check: %s' % heartbeat_info['broadcast_status'])
-        return heartbeat_info['broadcast_status'] not in ['active', 'interrupted']
+            # Good to go
+            logger.info('Downloading into %s ...' % mpd_output_dir)
+            logger.info('[i] To interrupt the download, press CTRL+C')
 
-    dl = Downloader(
-        mpd=mpd_url,
-        output_dir=mpd_output_dir,
-        callback_check=check_status,
-        user_agent=api.user_agent,
-        mpd_download_timeout=userconfig.mpdtimeout,
-        download_timeout=userconfig.downloadtimeout,
-        duplicate_etag_retry=60,
-        ffmpegbinary=userconfig.ffmpegbinary)
+            final_output = generate_safe_path('%s.mp4' % filename_prefix, userconfig.outputdir)
+            try:
+                generated_files = dl.download(
+                    final_output, skipffmpeg=userconfig.skipffmpeg,
+                    cleartempfiles=(not userconfig.nocleanup))
 
-    # Call the api to collect comments for the stream
-    def get_comments(*commenter_ids):
-        comments_collected = []
-        logger.info('Collecting comments...')
-        info = {
-            'id': broadcast['id'],
-            'broadcast_owner': broadcast['broadcast_owner'],
-            'published_time': broadcast['published_time'],
-            'delay': broadcast['delay'],
-            'comments': comments_collected
-        }
-        first_comment_created_at = 0
-        try:
-            while not job_aborted:
-                before_count = len(comments_collected)
-                try:
-                    comments_res = api.broadcast_comments(
-                        broadcast['id'], last_comment_ts=first_comment_created_at)
-                    comments = comments_res.get('comments', [])
-                    first_comment_created_at = (
-                        comments[0]['created_at_utc'] if comments else int(time.time() - 5))
-                except (SSLError, timeout, URLError, HTTPException, SocketError) as e:
-                    # Probably transient network error, ignore and continue
-                    logger.warning('Comment collection error: %s' % e)
-                    continue
-                except ClientError as e:
-                    if e.code == 500:
-                        logger.warning('Comment collection ClientError: %d %s' % (e.code, e.error_response))
-                        continue
-                    elif e.code == 400 and not e.msg:   # 400 error fail but no error message
-                        logger.warning('Comment collection ClientError: %d %s' % (e.code, e.error_response))
-                        continue
-                    raise e
+                # Save meta file later after a successful download
+                # so that we don't trip up the downloaded check
+                with open(meta_json_file, 'w') as outfile:
+                    json.dump(broadcast, outfile, indent=2)
+                logger.info(rule_line)
 
-                # save comment if it's in list of commenter IDs or if user is verified
-                comments_collected.extend(
-                    list(filter(
-                        lambda x: (str(x['user_id']) in commenter_ids or
-                                   x['user']['username'] in commenter_ids or
-                                   x['user']['is_verified']),
-                        comments)))
-                after_count = len(comments_collected)
-                if after_count > before_count:
-                    # save intermediately to avoid losing comments due to unexpected errors
-                    info['comments'] = comments_collected
-                    info['initial_buffered_duration'] = dl.initial_buffered_duration
-                    with open(comments_json_file, 'w') as outfile:
-                        json.dump(info, outfile, indent=2)
-                time.sleep(4)
+                if not userconfig.skipffmpeg:
+                    logger.info('Generated file(s): \n%s' % '\n'.join(generated_files))
+                else:
+                    logger.info('Skipped generating file.')
+                logger.info(rule_line)
 
-        except ClientError as e:
-            if 'media has been deleted' in e.error_response:
-                logger.info('Stream end detected.')
-            else:
-                logger.error('Comment collection ClientError: %d %s' % (e.code, e.error_response))
+                if userconfig.commenters or userconfig.collectcomments:
+                    logger.info('Collecting comments...')
+                    cdl = CommentsDownloader(
+                        api=api, broadcast=broadcast, destination_file=comments_json_file,
+                        user_config=userconfig, logger=logger)
+                    cdl.get_replay()
 
-        logger.info('%d comments collected' % len(comments_collected))
-        if not comments_collected:
-            return
+                    # Generate srt from comments collected
+                    if cdl.comments:
+                        logger.info('Generating comments file...')
+                        srt_filename = final_output.replace('.mp4', '.srt')
+                        CommentsDownloader.generate_srt(
+                            cdl.comments, broadcast['published_time'], srt_filename,
+                            comments_delay=0)
+                        logger.info('Comments written to: %s' % srt_filename)
+                        logger.info(rule_line)
 
-        # do final save just in case
-        info['comments'] = comments_collected
-        info['initial_buffered_duration'] = dl.initial_buffered_duration
-        with open(comments_json_file, 'w') as outfile:
-            json.dump(info, outfile, indent=2)
+            except KeyboardInterrupt:
+                logger.info('Download interrupted')
+            except Exception as e:
+                logger.error('Unexpected Error: %s' % str(e))
 
-    # Put comments collection into its own thread to run concurrently
-    comment_thread_worker = None
-    if userconfig.commenters or userconfig.collectcomments:
-        comment_thread_worker = threading.Thread(target=get_comments, args=userconfig.commenters or [])
-        comment_thread_worker.start()
+            continue    # Done with all replay processing
 
-    logger.info('Downloading into %s ...' % mpd_output_dir)
-    logger.info('[i] To interrupt the download, press CTRL+C')
-    try:
-        dl.run()
-    except KeyboardInterrupt:
-        logger.warning('Download interrupted.')
-        # Wait for download threads to complete
-        if not dl.is_aborted:
-            dl.stop()
-
-    finally:
-        job_aborted = True
-
-        # Record the initial_buffered_duration
-        broadcast['initial_buffered_duration'] = dl.initial_buffered_duration
-        broadcast['segments'] = dl.segment_meta
+        # ------------- LIVE broadcast -------------
         with open(meta_json_file, 'w') as outfile:
             json.dump(broadcast, outfile, indent=2)
 
-        missing = broadcast['delay'] - int(dl.initial_buffered_duration)
-        logger.info('Recorded stream is missing %d seconds' % missing)
+        job_aborted = False
 
-        # Wait for comments thread to complete
-        if comment_thread_worker and comment_thread_worker.is_alive():
-            logger.info('Stopping comments download...')
-            comment_thread_worker.join()
+        # Callback func used by downloaded to check if broadcast is still alive
+        def check_status():
+            heartbeat_info = api.broadcast_heartbeat_and_viewercount(broadcast['id'])
+            logger.info('Broadcast Status Check: %s' % heartbeat_info['broadcast_status'])
+            return heartbeat_info['broadcast_status'] not in ['active', 'interrupted']
 
-        logger.info('Assembling files....')
+        dl = Downloader(
+            mpd=mpd_url,
+            output_dir=mpd_output_dir,
+            callback_check=check_status,
+            user_agent=api.user_agent,
+            mpd_download_timeout=userconfig.mpdtimeout,
+            download_timeout=userconfig.downloadtimeout,
+            duplicate_etag_retry=60,
+            ffmpegbinary=userconfig.ffmpegbinary)
+
+        # Generate the final output filename so that we can
         final_output = generate_safe_path('%s.mp4' % filename_prefix, userconfig.outputdir)
 
-        generated_files = dl.stitch(
-            final_output, skipffmpeg=userconfig.skipffmpeg,
-            cleartempfiles=(not userconfig.nocleanup))
+        # Call the api to collect comments for the stream
+        def get_comments():
+            logger.info('Collecting comments...')
+            cdl = CommentsDownloader(
+                api=api, broadcast=broadcast, destination_file=comments_json_file,
+                user_config=userconfig, logger=logger)
+            first_comment_created_at = 0
+            try:
+                while not job_aborted:
+                    # Set initial_buffered_duration as soon as it's available
+                    if 'initial_buffered_duration' not in broadcast and dl.initial_buffered_duration:
+                        broadcast['initial_buffered_duration'] = dl.initial_buffered_duration
+                        cdl.broadcast = broadcast
+                    first_comment_created_at = cdl.get_live(first_comment_created_at)
 
-        logger.info(rule_line)
-        if not userconfig.skipffmpeg:
-            logger.info('Generated file(s): \n%s' % '\n'.join(generated_files))
-        else:
-            logger.info('Skipped generating file.')
-        logger.info(rule_line)
+            except ClientError as e:
+                if 'media has been deleted' in e.error_response:
+                    logger.info('Stream end detected.')
+                else:
+                    logger.error('Comment collection ClientError: %d %s' % (e.code, e.error_response))
 
-        if not userconfig.skipffmpeg and not userconfig.nocleanup:
-            shutil.rmtree(mpd_output_dir, ignore_errors=True)
+            logger.info('%d comments collected' % len(cdl.comments))
 
-        try:
-            # Generate srt from comments collected
-            if os.path.isfile(comments_json_file):
-                logger.info('Generating comments file...')
-                with open(comments_json_file) as cj:
-                    comments_info = json.load(cj)
-                comments = comments_info.get('comments', [])
+            # do final save just in case
+            if cdl.comments:
+                cdl.save()
+                # Generate srt from comments collected
                 srt_filename = final_output.replace('.mp4', '.srt')
-                generate_srt(
-                    comments, download_start_time, srt_filename,
+                CommentsDownloader.generate_srt(
+                    cdl.comments, download_start_time, srt_filename,
                     comments_delay=dl.initial_buffered_duration)
                 logger.info('Comments written to: %s' % srt_filename)
-                logger.info(rule_line)
+
+        # Put comments collection into its own thread to run concurrently
+        comment_thread_worker = None
+        if userconfig.commenters or userconfig.collectcomments:
+            comment_thread_worker = threading.Thread(target=get_comments)
+            comment_thread_worker.start()
+
+        logger.info('Downloading into %s ...' % mpd_output_dir)
+        logger.info('[i] To interrupt the download, press CTRL+C')
+        try:
+            dl.run()
+        except KeyboardInterrupt:
+            logger.warning('Download interrupted.')
+            # Wait for download threads to complete
+            if not dl.is_aborted:
+                dl.stop()
+
+        finally:
+            job_aborted = True
+
+            # Record the initial_buffered_duration
+            broadcast['initial_buffered_duration'] = dl.initial_buffered_duration
+            broadcast['segments'] = dl.segment_meta
+            with open(meta_json_file, 'w') as outfile:
+                json.dump(broadcast, outfile, indent=2)
+
+            missing = broadcast['delay'] - int(dl.initial_buffered_duration)
+            logger.info('Recorded stream is missing %d seconds' % missing)
+
+            # Wait for comments thread to complete
+            if comment_thread_worker and comment_thread_worker.is_alive():
+                logger.info('Stopping comments download...')
+                comment_thread_worker.join()
+
+            logger.info('Assembling files....')
+
+            generated_files = dl.stitch(
+                final_output, skipffmpeg=userconfig.skipffmpeg,
+                cleartempfiles=(not userconfig.nocleanup))
+
+            logger.info(rule_line)
+            if not userconfig.skipffmpeg:
+                logger.info('Generated file(s): \n%s' % '\n'.join(generated_files))
+            else:
+                logger.info('Skipped generating file.')
+            logger.info(rule_line)
+
+            if not userconfig.skipffmpeg and not userconfig.nocleanup:
+                shutil.rmtree(mpd_output_dir, ignore_errors=True)
 
             if userconfig.openwhendone and os.path.exists(final_output):
                 webbrowser.open_new_tab('file://' + os.path.abspath(final_output))
-
-        except KeyboardInterrupt:
-            logger.warning('Assembling interrupted.')

@@ -10,7 +10,7 @@ import subprocess
 import json
 
 from .utils import Formatter, generate_safe_path
-from .download import generate_srt
+from .comments import CommentsDownloader
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
 
@@ -65,6 +65,10 @@ def main():
 
     with open(args.broadcast_json_file) as info_file:
         broadcast_info = json.load(info_file)
+
+    if broadcast_info.get('broadcast_status', '') == 'post_live':
+        logger.error('Cannot assemble a broadcast with status: %s' % broadcast_info['broadcast_status'])
+        exit(9)
 
     stream_id = str(broadcast_info['id'])
     download_start_time = broadcast_info['published_time'] + (
@@ -209,7 +213,7 @@ def main():
             comments_info = json.load(cj)
 
         comments = comments_info.get('comments', [])
-        generate_srt(
+        CommentsDownloader.generate_srt(
             comments, download_start_time, srt_file,
             comments_delay=comments_info.get('initial_buffered_duration', 10.0))
 

@@ -115,6 +115,7 @@ class UserConfig(object):
             'skipffmpeg=%s' % self.skipffmpeg,
             'log=%s' % self.log,
             'filenameformat=%s' % self.filenameformat,
+            'noreplay=%s' % self.noreplay,
         ])
 
     @property
@@ -167,7 +168,7 @@ class UserConfig(object):
 
     @property
     def ffmpegbinary(self):
-        return self.get('ffmpegbinary', type=bool)
+        return self.get('ffmpegbinary')
 
     @property
     def log(self):
@@ -176,6 +177,10 @@ class UserConfig(object):
     @property
     def filenameformat(self):
         return self.get('filenameformat')
+
+    @property
+    def noreplay(self):
+        return self.get('noreplay', type=bool)
 
 
 def check_for_updates(current_version):
