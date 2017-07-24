@@ -426,6 +426,9 @@ def run():
             if glob.glob(os.path.join(userconfig.outputdir, '%s.*' % filename_prefix)):
                 # Already downloaded, so skip
                 logger.warning('This broadcast is already downloaded.')
+                # Remove created empty folder
+                if os.path.isdir(mpd_output_dir):
+                    os.rmdir(mpd_output_dir)
                 continue
 
             # Good to go
