@@ -1,5 +1,11 @@
 # Instagram Live Stream Downloader [![Release](https://img.shields.io/badge/latest_release-v0.3.8-ff4980.svg)](https://github.com/taengstagram/instagram-livestream-downloader/releases)
 
+
+### 2017.08 Notice
+I am no longer actively maintaining or supporting this project. Use at your own discretion.
+
+---
+
 ``livestream_dl`` is a Python console script that downloads an Instagram Live stream. It only downloads a stream that is available for *replay*, or *currently ongoing*, and cannot capture any part of a stream that has already passed.
 
 Python 2.7 and >=3.5 compatible.
