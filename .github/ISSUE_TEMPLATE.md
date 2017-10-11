@@ -1,8 +1,8 @@
 
-# THIS PROJECT IS NO LONGER MAINTAINED BY THE OWNER.
-
 ## Please read the following instructions carefully
 
+- THIS PROJECT IS NO LONGER MAINTAINED BY THE OWNER.
+- This repo is not maintained, so **close** your issue if it is resolved. Clean up after yourself.
 - Issues submitted without this template format will be **ignored**.
 - I can't help you with python / ffmpeg installation problems so issues related to those will probably not get a response from me.
 - Please read the questions asked and answer completely.

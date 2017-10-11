@@ -2,7 +2,7 @@
 
 
 ### 2017.08 Notice
-I am no longer actively maintaining or supporting this project. Use at your own discretion.
+I am no longer actively maintaining or supporting this project. Use at your own discretion. I've left the issues open so that you can get help from fellow users, but please maintain basic GitHub courtesy. Close your issues if it is resolved. Don't hijack un-related issues.
 
 ---
 
