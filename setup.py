@@ -5,8 +5,8 @@ __author__ = 'taengstagram'
 __email__ = 'taengstagram@gmail.com'
 __version__ = '0.3.8'
 
-_api_version = '1.3.5'
-_api_extensions_version = '0.3.6'
+_api_version = '1.6.0'
+_api_extensions_version = '0.3.9'
 
 long_description = '''
 ``livestream_dl`` is a Python console script that downloads an Instagram Live stream.
